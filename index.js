@@ -1,5 +1,11 @@
+const crypto = require("node:crypto");
 const express = require("express");
 const { generateRegistrationOptions } = require("@simplewebauthn/server");
+const { error } = require("node:console");
+
+if (!globalThis.crypto) {
+  globalThis.crypto = crypto;
+}
 
 const port = 3000;
 const app = express();
@@ -28,28 +34,22 @@ app.post("/register", (req, res) => {
   return res.json({ id });
 });
 
-app.post("register-challenge", async (req, res) => {
+app.post("/register-challenge", async (req, res) => {
   const { userId } = req.body;
 
-  if (!userStore[userId]) {
-    return res.status(404).json({ message: "User not found" });
-  }
+  if (!userStore[userId]) return res.status(404).json({ error: "User not found" });
+
+  const user = userStore[userId];
+
   const challengePayload = await generateRegistrationOptions({
-    // id: userId,
-    rpId: "localhost",
-    rpName: "Localhost",
-    username: userStore[userId].username,
-    // password: userStore[userId].password,
-    // authenticatorSelection: {
-    //   authenticatorAttachment: "platform",
-    //   userVerification: "required",
-    // },
-    // timeout: 60000,
+    rpID: "localhost",
+    rpName: "Localhost Machine",
+    userName: user.username,
   });
 
   challengeStore[userId] = challengePayload.challenge;
 
-  return res.json({ option: challengePayload });
+  return res.json({ options: challengePayload });
 });
 
 app.listen(port, () => {
