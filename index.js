@@ -1,6 +1,6 @@
 const crypto = require("node:crypto");
 const express = require("express");
-const { generateRegistrationOptions } = require("@simplewebauthn/server");
+const { generateRegistrationOptions, verifyRegistrationResponse } = require("@simplewebauthn/server");
 const { error } = require("node:console");
 
 if (!globalThis.crypto) {
@@ -51,6 +51,30 @@ app.post("/register-challenge", async (req, res) => {
 
   return res.json({ options: challengePayload });
 });
+
+app.post("/register-verify", async (req, res) => {
+  const { userId, response } = req.body;
+
+  if (!userStore[userId]) return res.status(404).json({ error: "User not found" });
+
+  const user = userStore[userId];
+  const challenge = challengeStore[userId];
+
+
+  const verifyRegistrationResult = await verifyRegistrationResponse({
+    expectedChallenge: challenge,
+    expectedOrigin: "http://localhost:3000",
+    expectedRPID: "localhost",
+    response: response,
+  })
+
+  if (!verifyRegistrationResult.verified) {
+    return res.status(400).json({ error: "Invalid registration response" });
+  }
+  userStore[userId].passkey = verifyRegistrationResult.registrationInfo
+
+  return res.json({ verified: true });
+})
 
 app.listen(port, () => {
   console.log(`Server started on port ${port}`);
